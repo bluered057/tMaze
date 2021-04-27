@@ -2,13 +2,13 @@ import pygame, sys, random, json
 from pygame.locals import *
 
 def title():
-	global screenx, screeny, screen, base_color_light, base_color_medium, base_color_dark, fps, clock
+	global screenx, screeny, screen, fps, clock
 
 	screenx = 720
 	screeny = 720
-	base_color_light  = (155,155,155)
-	base_color_medium = (113,113,113)
-	base_color_dark   = ( 53, 53, 53)
+	text_color = (255,255,255)
+	high_color = (255,255,255)
+	back_color = (255,255,255)
 	fps = 60
 
 	screen = pygame.display.set_mode((screenx, screeny))
@@ -22,13 +22,15 @@ def main():
 	pressed_down = False
 	pressed_left = False
 	pressed_right = False
+	ded_num = 0
 	died = False
 
 	with open('gamestate', 'r') as f:
-		current_map_number = json.loads(json.load(f))[0]
+		current_map_number = int(json.loads(json.load(f))[0])
 	map_dict = sv_load(current_map_number)
 
-	player = pygame.rect.Rect(5, 5, screenx/10 - 20, screenx/10 - 20)
+	player = pygame.rect.Rect(map_dict['spawn'][0], map_dict['spawn'][1], screenx/map_dict['width'] - screenx/map_dict['width']/4, screenx/map_dict['height'] - screenx/map_dict['height']/4)
+	player.topleft = (map_dict['spawn'][0] + 5, map_dict['spawn'][1] + 5)
 
 	while True:
 		for event in pygame.event.get():
@@ -57,30 +59,34 @@ def main():
 					pressed_right = False
 
 		if ((player.right > screenx or player.left < 0) or (player.bottom > screeny or player.top < 0)):
-			player = death(player, map_dict['map_spawn'])
+			player = death(player, map_dict['spawn'])
 			died = True
  
-		if pressed_up:
-			player.y += -speed
-		if pressed_down:
-			player.y += speed
-		if pressed_left:
-			player.x += -speed
-		if pressed_right:
-			player.x += speed
+		if not died:
+			if pressed_up:
+				player.y += -speed
+			if pressed_down:
+				player.y += speed
+			if pressed_left:
+				player.x += -speed
+			if pressed_right:
+				player.x += speed
 
-		screen.fill(base_color_light)
+		screen.fill(map_dict['color1'])
 		yarnar = mp_draw(map_dict, player, died)
 		if yarnar:
 			current_map_number += 1
+			if current_map_number > 3:
+				win()
 			map_dict = sv_load(current_map_number)
 			sv_save(current_map_number)
-		pygame.draw.rect(screen, base_color_dark, player)
+		pygame.draw.rect(screen, map_dict['color3'], player)
 
 		pygame.display.update()
 		if died:
-			# print('Died.  ' + str(random.randint(100, 999)))
-			pygame.time.wait(500)
+			ded_num += 1
+			print('Died.  ' + str(ded_num) + str(1000 + random.randint(100, 999)))
+			pygame.time.wait(5)
 			died = False
 		clock.tick(fps)
 
@@ -91,32 +97,33 @@ def win():
 
 def mp_draw(map_dict, player, died):
 	width = screenx/10
-	for enum2, row in enumerate(map_dict['map_strc']):
-		for enum1, item in enumerate(row):
+	# print(map_dict)
+	for enum1, row in enumerate(map_dict['structure']):
+		for enum2, item in enumerate(row):
 			if item == 0:
-				pygame.draw.rect(screen, base_color_light, (enum2*width, enum1*width, width, width))
+				pygame.draw.rect(screen, map_dict['color1'], (enum2*width, enum1*width, width, width))
 			elif item == 1:
-				pygame.draw.rect(screen, base_color_medium, (enum2*width, enum1*width, width, width))
+				pygame.draw.rect(screen, map_dict['color2'], (enum2*width, enum1*width, width, width))
 				if player.colliderect((enum2*width, enum1*width, width, width)):
-					player = death(player, map_dict['map_spawn'])
+					# player = death(player, map_dict['spawn'])
 					died = True
 			elif item == 2:
-				pygame.draw.rect(screen, base_color_dark, (enum2*width, enum1*width, width, width))
+				pygame.draw.rect(screen, map_dict['color3'], (enum2*width, enum1*width, width, width))
 				if player.colliderect((enum2*width, enum1*width, width, width)):
 					return True
 	return False
 
 def sv_load(current_map_number):
-	with open(f'maps/{current_map_number}.mapp', 'r') as f:
+	with open(f'maps/{str(current_map_number)}.mapp', 'r') as f:
 		map_dict = json.loads(json.load(f))
 		return map_dict
 
 def sv_save(current_map_number):
 	with open('gamestate', 'w') as f:
-		json.dump(json.dumps([current_map_number]))
+		json.dump(json.dumps([str(current_map_number)]), f)
 
 def death(player, spawn_point):
-	player.topleft = (spawn_point[0] + 10, spawn_point[1] + 10)
+	player.topleft = (spawn_point[0] + 5, spawn_point[1] + 5)
 	return player
 
 if __name__ == '__main__':
